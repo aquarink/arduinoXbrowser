@@ -1,5 +1,5 @@
 
-# Arduino Inteconnection With Web Boroswe
+# Arduino Inteconnection With Web Browser
 
 1. Arduino using the Uno Version
 2. We are using Javascript native (stream).
