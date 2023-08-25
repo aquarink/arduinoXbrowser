@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arduino Communication</title>
+</head>
+<body>
+    <h1>Arduino Communication</h1>
+    <button id="connectButton">Connect to Arduino</button>
+    <textarea id="inputData" rows="3" cols="30"></textarea>
+    <button id="sendButton">Send Data</button>
+    <div id="response"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let serialPort = null;
+            let reader = null; // Menyimpan referensi pembaca aliran
+
+            const connectButton = document.getElementById('connectButton');
+            const sendDataButton = document.getElementById('sendButton');
+            const inputData = document.getElementById('inputData');
+            const responseDiv = document.getElementById('response');
+
+            connectButton.addEventListener('click', async () => {
+                try {
+                    const port = await navigator.serial.requestPort();
+                    serialPort = port;
+
+                    await serialPort.open({ baudRate: 9600 });
+                    responseDiv.textContent = `Connected to ${serialPort.name}`;
+                    console.log(serialPort)
+
+                    // Membuat pembaca aliran saat terhubung
+                    reader = serialPort.readable.getReader();
+                    readSerialData(); // Mulai membaca data dari serial port
+                } catch (error) {
+                    console.error('Error connecting:', error);
+                }
+            });
+
+            sendDataButton.addEventListener('click', async () => {
+                if (!serialPort) {
+                    responseDiv.textContent = 'Serial port not connected.';
+                    return;
+                }
+
+                // Mengambil nilai dari input
+                const inputDataValue = inputData.value.trim();
+
+                // Mencegah mengirim jika data kosong
+                if (inputDataValue === '') {
+                    alert('Data cannot be empty.');
+                    return;
+                }
+
+                try {
+                    const writer = serialPort.writable.getWriter();
+
+                    const dataToSend = inputDataValue + '\n';
+                    const encoder = new TextEncoder();
+                    const dataToSendUint8 = encoder.encode(dataToSend);
+
+                    await writer.write(dataToSendUint8);
+                    await writer.close();
+
+                    // Tidak perlu membaca saat mengirim data
+                    responseDiv.textContent = 'Data sent to Arduino.';
+                } catch (error) {
+                    console.error('Error sending data:', error);
+                }
+            });
+
+            async function readSerialData() {
+                if (!serialPort) {
+                    return;
+                }
+
+                let accumulatedData = ''; // Menyimpan data yang dikumpulkan
+                const maxLines = 3; // Jumlah maksimum baris data yang akan ditampilkan
+
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+
+                        if (done) {
+                            break;
+                        }
+
+                        const decoder = new TextDecoder();
+                        const dataText = decoder.decode(value);
+
+                        // Menghilangkan spasi dan karakter khusus lainnya
+                        const trimmedDataText = dataText.trim();
+
+                        if (trimmedDataText !== '' && trimmedDataText !== '.' && trimmedDataText !== ',') {
+                            accumulatedData += dataText;
+
+                            // Memisahkan data menjadi baris-baris
+                            const lines = accumulatedData.split('\n');
+
+                            // Batasi jumlah baris sesuai dengan maxLines
+                            if (lines.length > maxLines) {
+                                lines.shift(); // Menghapus baris pertama (paling awal)
+                            }
+
+                            // Menggabungkan baris-baris menjadi satu string
+                            accumulatedData = lines.join('<br>');
+
+                            // responseDiv.textContent = accumulatedData;
+                            responseDiv.innerHTML = accumulatedData;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error reading data:', error);
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
+
+
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Serial Port Communication</title>
+</head>
+<body>
+    <button id="connectButton">Connect to Serial Port</button>
+    <input type="text" id="inputText" placeholder="Enter message">
+    <button id="sendButton">Send to Serial Port</button>
+    <div id="output"></div>
+    
+    <script>
+        const connectButton = document.getElementById("connectButton");
+        const inputText = document.getElementById("inputText");
+        const sendButton = document.getElementById("sendButton");
+        const output = document.getElementById("output");
+        let serialPort;
+        let writer;
+
+        async function initSerial() {
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 9600 });
+                writer = serialPort.writable.getWriter();
+
+                // Enable send button
+                sendButton.disabled = false;
+
+                output.innerHTML = "Connected to Serial Port";
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        }
+
+        connectButton.addEventListener("click", initSerial);
+
+        sendButton.addEventListener("click", async () => {
+            try {
+                const message = inputText.value;
+                const encoder = new TextEncoder();
+                await writer.write(encoder.encode(message));
+                output.innerHTML += `<p>Sent: ${message}</p>`;
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        });
+    </script>
+</body>
+</html> -->
+
+
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Serial Port Reader</title>
+</head>
+<body>
+    <button id="connectButton">Connect to Serial Port</button>
+
+    <input type="text" id="inputData" placeholder="Enter ID">
+    <button id="sendButton">Send ID to Arduino</button>
+
+    <div id="output"></div>
+    
+    <script>
+        const sendButton = document.getElementById("sendButton");
+        const connectButton = document.getElementById("connectButton");
+        const output = document.getElementById("output");
+        let serialPort;
+        let reader;
+
+        async function initSerial() {
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 9600 });
+                reader = serialPort.readable.getReader();
+
+                // Start reading data from Serial Port
+                readData();
+                output.innerHTML = "Connected to Serial Port";
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        }
+
+        connectButton.addEventListener("click", initSerial);
+
+        async function readData() {
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        reader.releaseLock();
+                        break;
+                    }
+                    // Display the received data
+                    output.innerHTML += `<p>Received: ${new TextDecoder().decode(value)}</p>`;
+                }
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        }
+
+        sendButton.addEventListener("click", readData);
+    </script>
+</body>
+</html> -->
+
+
+
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Serial Communication with Arduino</title>
+</head>
+<body>
+    <button id="connectButton">Connect to Arduino</button>
+    <input type="text" id="inputData" placeholder="Enter ID">
+    <button id="sendButton">Send ID to Arduino</button>
+    <div id="output"></div>
+    
+    <script>
+        const connectButton = document.getElementById("connectButton");
+        const sendButton = document.getElementById("sendButton");
+        const inputData = document.getElementById("inputData");
+        const output = document.getElementById("output");
+        let serialPort;
+        let writer;
+
+        connectButton.addEventListener("click", async () => {
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 9600 });
+                writer = serialPort.writable.getWriter();
+                output.innerHTML = "Connected to Arduino";
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        });
+
+        sendButton.addEventListener("click", async () => {
+            try {
+                const id = inputData.value;
+                const dataArray = new TextEncoder().encode(id);
+                await writer.write(dataArray);
+                output.innerHTML = `Sent: ${id}`;
+            } catch (error) {
+                output.innerHTML = `Error: ${error}`;
+            }
+        });
+    </script>
+</body>
+</html>
+ -->
